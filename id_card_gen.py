@@ -1,4 +1,4 @@
-VERSION = 1.1
+VERSION = 1.2
 AUTH = "ZD"
 
 import hashlib
@@ -17,12 +17,16 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from PyPDF2 import PdfWriter, PdfReader
 
+from PIL import features
 
-TEMPLATE = r"BBA corr design.pdf"
+print("RAQM:", features.check("raqm"))
+print("HarfBuzz:", features.check_feature("harfbuzz"))
+print("FriBidi:", features.check_feature("fribidi"))
+
+
+TEMPLATE = r"BBA corr design v3.pdf"
 SECRET_KEY = 'UzFOaGJYbEpTVlJOVUU5RQ'
 
 def generate_student_hash(roll_number, secret_key=SECRET_KEY):
@@ -135,7 +139,7 @@ PHOTO_DIR = BASE_DIR / "resources" / "pics"
 SIGN_DIR = BASE_DIR / "resources" / "sins"
 
 # Coordinates are PDF points from the bottom-left of the portrait A4 page.
-PHOTO_BOX = (8, 34, 56, 69)
+PHOTO_BOX = (8, 36, 56.2, 69.3)
 SIGN_BOX = (101, 25, 58, 20)
 QR_BOX = (180, 53, 43, 43)
 
@@ -143,21 +147,18 @@ level_traslate_dict ={"CERTIFICATE":"प्रमाणपत्र",
                       "DIPLOMA":"डिप्लोमा",
                       "BBA DEGREE": "बीबीए डिग्री",
                       "BBA HONOURS": "बीबीए सम्मान"}
-LEVEL2_FONT_NAME = "Calibri"
-LEVEL2_FONT_PATH = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "Calibri.ttc"
-if LEVEL2_FONT_PATH.is_file():
-    pdfmetrics.registerFont(TTFont(LEVEL2_FONT_NAME, str(LEVEL2_FONT_PATH), subfontIndex=0))
+LEVEL2_FONT_PATH = (BASE_DIR / "Noto_Sans_Devanagari" / "NotoSansDevanagari-VariableFont_wdth,wght.ttf")
 
 PAGE_1_TEXT = {
-    "level": (87.3, 58.7, 5),
-    "level2": (87.5, 64, 5),
-    "enrollment_no": (135, 49.5, 5),
+    "level": (92.5, 62, 5),
+    "level2": (89, 67.7, 6),
+    "enrollment_no": (144, 50, 5),
 }
 PAGE_2_TEXT = {
-    "dob": (61, 105.2, 5),
-    "mobile": (47, 95.5, 5),
-    "student_email": (40, 86, 5),
-    "address": [(15, 61, 5), (15, 55, 5), (15, 49, 5)],
+    "dob": (66, 105, 5),
+    "mobile": (50, 94.7, 5),
+    "student_email": (41, 84.5, 5),
+    "address": [(13, 64, 5), (13, 58, 5), (13, 52, 5)],
 }
 
 
@@ -229,6 +230,38 @@ def _draw_centered_text(pdf, value, y, font_size, page_width):
     pdf.drawCentredString((page_width / 2)+30, y, value)
 
 
+def _draw_level2_text(pdf, value, position):
+    """Render translated Hindi text as an image to preserve its glyph layout."""
+    if not LEVEL2_FONT_PATH.is_file():
+        _draw_text(pdf, value, position)
+        return
+
+    x, y, font_size = position
+    scale = 8
+    font = ImageFont.truetype(str(LEVEL2_FONT_PATH), max(1, round(font_size * scale)))
+    bbox = font.getbbox(value, anchor="ls")
+    padding = scale * 2
+    image = Image.new(
+        "RGBA",
+        (
+            max(1, bbox[2] - bbox[0] + padding * 2),
+            max(1, bbox[3] - bbox[1] + padding * 2),
+        ),
+        (255, 255, 255, 0),
+    )
+    draw = ImageDraw.Draw(image)
+    draw.text(
+        (padding - bbox[0], padding - bbox[1]),
+        value,
+        font=font,
+        fill="black",
+        anchor="ls",
+    )
+    image_width = image.width / scale
+    image_height = image.height / scale
+    _draw_image(pdf, image, (x, y - image_height + font_size, image_width, image_height))
+
+
 def _format_mobile(value):
     return value.split("_", 1)[0].strip()
 
@@ -272,11 +305,9 @@ def _make_overlay(student, page_number, page_size):
                 value = _value(student, "level") if key == "level2" else _value(student, key)
                 if key == "level2":
                     value = level_traslate_dict.get(value, value)
-                    if LEVEL2_FONT_PATH.is_file():
-                        pdf.setFont(LEVEL2_FONT_NAME, position[2])
-                        pdf.drawString(position[0], position[1], value)
-                        continue
-                _draw_text(pdf, value, position)
+                    _draw_level2_text(pdf, value, position)
+                else:
+                    _draw_text(pdf, value, position)
     else:
         student_hash = generate_student_hash(_value(student, "enrollment_no"))
         qr_url = f"https://iimu-pgm-apps.el.r.appspot.com/document_verification/{student_hash}"
