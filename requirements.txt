@@ -1,0 +1,6 @@
+pandas
+Pillow
+qrcode
+reportlab
+PyPDF2
+tqdm
