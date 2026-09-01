@@ -1,4 +1,4 @@
-VERSION = 1.2
+VERSION = 1.5
 AUTH = "ZD"
 
 import hashlib
@@ -26,7 +26,7 @@ print("HarfBuzz:", features.check_feature("harfbuzz"))
 print("FriBidi:", features.check_feature("fribidi"))
 
 
-TEMPLATE = r"BBA corr design v3.pdf"
+TEMPLATE = r"BBA Identity Card_Final v4.pdf"
 SECRET_KEY = 'UzFOaGJYbEpTVlJOVUU5RQ'
 
 def generate_student_hash(roll_number, secret_key=SECRET_KEY):
@@ -150,15 +150,15 @@ level_traslate_dict ={"CERTIFICATE":"प्रमाणपत्र",
 LEVEL2_FONT_PATH = (BASE_DIR / "Noto_Sans_Devanagari" / "NotoSansDevanagari-VariableFont_wdth,wght.ttf")
 
 PAGE_1_TEXT = {
-    "level": (92.5, 62, 5),
-    "level2": (89, 67.7, 6),
-    "enrollment_no": (144, 50, 5),
+    "level": (92, 59.6, 5),
+    "level2": (89, 67.3, 6),
+    "enrollment_no": (138, 49.7, 5),
 }
 PAGE_2_TEXT = {
-    "dob": (66, 105, 5),
-    "mobile": (50, 94.7, 5),
-    "student_email": (41, 84.5, 5),
-    "address": [(13, 64, 5), (13, 58, 5), (13, 52, 5)],
+    "dob": (68, 104.5, 5),
+    "mobile": (53, 94.7, 5),
+    "student_email": (44, 85, 5),
+    "address": [(15, 61, 5), (15, 55, 5), (15, 49, 5)],
 }
 
 
@@ -310,6 +310,7 @@ def _make_overlay(student, page_number, page_size):
                     _draw_text(pdf, value, position)
     else:
         student_hash = generate_student_hash(_value(student, "enrollment_no"))
+        # qr_url = f"https://iimu-pgm-apps.el.r.appspot.com/student_id/{student_hash}"
         qr_url = f"https://iimu-pgm-apps.el.r.appspot.com/document_verification/{student_hash}"
         qr = generate_qr_code(qr_url)
         _draw_image(pdf, _fit_image(qr, QR_BOX[2], QR_BOX[3]), QR_BOX)
