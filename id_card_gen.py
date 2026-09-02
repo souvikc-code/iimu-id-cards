@@ -60,25 +60,93 @@ def generate_qr_code(data):
         return create_placeholder_image()
 
 
-def format_address_lines(student_data):
-    """Return the address as up to three compact display lines."""
-    address_line1 = str(student_data.get('street_address_line_1', '')).strip() if not pd.isna(student_data.get('street_address_line_1', '')) else ""
-    address_line2 = str(student_data.get('street_address_line_2', '')).strip() if not pd.isna(student_data.get('street_address_line_2', '')) else ""
-    city = str(student_data.get('city', '')).strip().title() if not pd.isna(student_data.get('city', '')) else ""
-    state = str(student_data.get('state', '')).strip().title() if not pd.isna(student_data.get('state', '')) else ""
-    country = str(student_data.get('country', '')).strip().title() if not pd.isna(student_data.get('country', '')) else ""
-    pincode = str(student_data.get('pincode', '')).strip() if not pd.isna(student_data.get('pincode', '')) else ""
+# def format_address_lines(student_data):
+#     """Return the address as up to three compact display lines."""
+#     address_line1 = str(student_data.get('street_address_line_1', '')).strip() if not pd.isna(student_data.get('street_address_line_1', '')) else ""
+#     address_line2 = str(student_data.get('street_address_line_2', '')).strip() if not pd.isna(student_data.get('street_address_line_2', '')) else ""
+#     city = str(student_data.get('city', '')).strip().title() if not pd.isna(student_data.get('city', '')) else ""
+#     state = str(student_data.get('state', '')).strip().title() if not pd.isna(student_data.get('state', '')) else ""
+#     country = str(student_data.get('country', '')).strip().title() if not pd.isna(student_data.get('country', '')) else ""
+#     pincode = str(student_data.get('pincode', '')).strip() if not pd.isna(student_data.get('pincode', '')) else ""
     
-    location = ", ".join(part for part in [city, state, country, pincode] if part)
-    lines = [part.title() for part in [address_line1, address_line2, location] if part]
-    lines += [""] * (3 - len(lines))
-    if not any(lines):
-        lines[0] = "NaN"
+#     location = ", ".join(part for part in [city, state, country, pincode] if part)
+#     lines = [part.title() for part in [address_line1, address_line2, location] if part]
+#     lines += [""] * (3 - len(lines))
+#     if not any(lines):
+#         lines[0] = "NaN"
+#     return {
+#         "address_line1": lines[0],
+#         "address_line2": lines[1],
+#         "address_line3": lines[2],
+#     }
+
+def format_address_lines(student_data, width=70):
+    """Return address components wrapped into display lines."""
+
+    def clean(value, title=False):
+        if value is None or pd.isna(value):
+            return ""
+        value = str(value).strip()
+        return value.title() if title else value
+
+    address_line1 = clean(
+        student_data.get("street_address_line_1", "")
+    )
+
+    address_line2 = clean(
+        student_data.get("street_address_line_2", "")
+    )
+
+    city = clean(student_data.get("city", ""), title=True)
+    state = clean(student_data.get("state", ""), title=True)
+    country = clean(student_data.get("country", ""), title=True)
+    pincode = clean(student_data.get("pincode", ""))
+
+    # Third logical component
+    location = ", ".join(
+        part for part in [city, state, country, pincode] if part
+    )
+
+    # Only include non-empty components
+    components = [
+        address_line1,
+        address_line2,
+        location,
+    ]
+
+    # Wrap each component independently
+    lines = []
+
+    for component in components:
+        if not component:
+            continue
+
+        words = component.split()
+        current_line = ""
+
+        for word in words:
+            # If adding this word exceeds width, start a new line
+            if current_line and len(current_line) + 1 + len(word) > width:
+                lines.append(current_line)
+                current_line = word
+            else:
+                current_line = (
+                    word if not current_line
+                    else current_line + " " + word
+                )
+
+        if current_line:
+            lines.append(current_line)
+
+    # If completely empty
+    if not lines:
+        lines = ["NaN"]
+
     return {
-        "address_line1": lines[0],
-        "address_line2": lines[1],
-        "address_line3": lines[2],
+        f"address_line{i + 1}": line
+        for i, line in enumerate(lines)
     }
+    # return {line for i,line in enumerate(lines)}
 
 
 
@@ -132,14 +200,14 @@ def _image_to_buffer(img: Image.Image) -> io.BytesIO:
 
 
 BASE_DIR = Path(__file__).resolve().parent
-INPUT_CSV = BASE_DIR / "input.csv"
+INPUT_CSV = BASE_DIR / "iimu id card data - bq.csv"                 #input.csv"
 OUTPUT_PDF = BASE_DIR / "generated_id_cards.pdf"
 OUTPUT_DIR = BASE_DIR / "IIMU_ID_CARDS"
-PHOTO_DIR = BASE_DIR / "resources" / "pics"
-SIGN_DIR = BASE_DIR / "resources" / "sins"
+PHOTO_DIR = BASE_DIR / "resources" / "Photo"
+SIGN_DIR = BASE_DIR / "resources" / "Sign"
 
 # Coordinates are PDF points from the bottom-left of the portrait A4 page.
-PHOTO_BOX = (8, 36, 56.2, 69.3)
+PHOTO_BOX = (8, 35.8, 56.2, 69.7)
 SIGN_BOX = (101, 25, 58, 20)
 QR_BOX = (180, 53, 43, 43)
 
@@ -158,7 +226,7 @@ PAGE_2_TEXT = {
     "dob": (68, 104.5, 5),
     "mobile": (53, 94.7, 5),
     "student_email": (44, 85, 5),
-    "address": [(15, 61, 5), (15, 55, 5), (15, 49, 5)],
+    "address": [(15, 59, 5), (15, 53, 5), (15, 47, 5)],
 }
 
 
@@ -266,15 +334,52 @@ def _format_mobile(value):
     return value.split("_", 1)[0].strip()
 
 
+# def _format_dob(value):
+#     date_text = value.split(" UTC", 1)[0].strip()
+#     try:
+#         return datetime.strptime(date_text, "%Y-%m-%d %H:%M:%S.%f").strftime("%d-%m-%Y")
+#     except ValueError:
+#         try:
+#             return datetime.strptime(date_text, "%Y-%m-%d").strftime("%d-%m-%Y")
+#         except ValueError:
+#             return value
+
 def _format_dob(value):
-    date_text = value.split(" UTC", 1)[0].strip()
+    if value is None:
+        return ""
+
+    value = str(value).strip()
+
+    # Already in required format → return as is
     try:
-        return datetime.strptime(date_text, "%Y-%m-%d %H:%M:%S.%f").strftime("%d-%m-%Y")
+        datetime.strptime(value, "%d %b, %Y")
+        return value
     except ValueError:
+        pass
+
+    # Try known input formats
+    input_formats = [
+        "%Y-%m-%d %H:%M:%S.%f",   # 2008-11-09 00:00:00.000000
+        "%Y-%m-%d %H:%M:%S",      # 2008-11-09 0:00:00
+        "%Y-%m-%d",              # 2008-11-09
+    ]
+
+    for fmt in input_formats:
         try:
-            return datetime.strptime(date_text, "%Y-%m-%d").strftime("%d-%m-%Y")
+            dt = datetime.strptime(value, fmt)
+
+            # Linux/Mac
+            try:
+                return dt.strftime("%-d %b, %Y")
+            except ValueError:
+                # Windows
+                return dt.strftime("%#d %b, %Y")
+
         except ValueError:
-            return value
+            continue
+
+    # Unknown format → leave unchanged
+    return value
 
 
 def _load_image(directory, filename, placeholder_size):
@@ -317,11 +422,24 @@ def _make_overlay(student, page_number, page_size):
         for key, positions in PAGE_2_TEXT.items():
             if key == "address":
                 address = format_address_lines(student)
-                values = [
-                    address["address_line1"],
-                    address["address_line2"],
-                    address["address_line3"],
-                ]
+                # values = [
+                #     address["address_line1"],
+                #     address["address_line2"],
+                #     address["address_line3"],
+                # ]
+                # Starting position for address
+                x, y, font_size = positions[0]
+                line_spacing = 6
+
+                # Draw however many lines the address needs
+                for i, value in enumerate(address.values()):
+                    _draw_text(
+                        pdf,
+                        value,
+                        (x, y - (i * line_spacing), font_size)
+                    )
+                continue
+
             else:
                 value = _value(student, key)
                 if key == "mobile":
