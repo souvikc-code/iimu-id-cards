@@ -80,7 +80,7 @@ def generate_qr_code(data):
 #         "address_line3": lines[2],
 #     }
 
-def format_address_lines(student_data, width=70):
+def format_address_lines(student_data, width=55):
     """Return address components wrapped into display lines."""
 
     def clean(value, title=False):
